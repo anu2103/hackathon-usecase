@@ -1,12 +1,18 @@
+# Stage 1: Build the application
 FROM maven:3.9.9-eclipse-temurin-17 AS builder
 
 WORKDIR /build
 
-COPY . .
+COPY pom.xml .
+RUN mvn -B -q -e -DskipTests dependency:go-offline
+
+COPY src ./src
 
 RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-jammy
+
+# Stage 2: Run the application
+FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
