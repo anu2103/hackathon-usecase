@@ -1,12 +1,17 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - main
 
+env:
+  PROJECT_ID: devops-hackathon-490406
+  GKE_CLUSTER: hackathon-cluster 
+  GKE_ZONE: us-central1-a
+
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,34 +19,38 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    # 🔐 Authenticate to GCP
     - name: Login to GCP
       uses: google-github-actions/auth@v1
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+    # 🐳 Configure Docker
     - name: Configure Docker
-      run: |
-        gcloud auth configure-docker
+      run: gcloud auth configure-docker
 
-    - name: Build Patient Service Image
+    # 🏗️ Build Images with UNIQUE TAG
+    - name: Build Images
       run: |
-        docker build -t gcr.io/devops-hackathon-490406/patient-service ./patient-service
+        docker build -t gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }} ./patient-service
+        docker build -t gcr.io/devops-hackathon-490406/order-service:${{ github.sha }} ./order-service
+        docker build -t gcr.io/devops-hackathon-490406/application-service:${{ github.sha }} ./application-service
 
-    - name: Push Patient Service Image
+    # 📤 Push Images
+    - name: Push Images
       run: |
-        docker push gcr.io/devops-hackathon-490406/patient-service
+        docker push gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }}
+        docker push gcr.io/devops-hackathon-490406/order-service:${{ github.sha }}
+        docker push gcr.io/devops-hackathon-490406/application-service:${{ github.sha }}
 
-    - name: Build Order Service Image
+    # ☸️ Connect to GKE
+    - name: Get GKE Credentials
       run: |
-        docker build -t gcr.io/devops-hackathon-490406/order-service ./order-service
+        gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE
 
-    - name: Push Order Service Image
+    # 🚀 Deploy to Kubernetes (MOST IMPORTANT)
+    - name: Deploy to GKE
       run: |
-        docker push gcr.io/devops-hackathon-490406/order-service
-
-    - name: Build Application Service Image
-      run: |
-        docker build -t gcr.io/devops-hackathon-490406/application-service ./application-service
-    - name: Push Application Service Image
-      run: |
-        docker push gcr.io/devops-hackathon-490406/application-service
+        kubectl set image deployment/patient-service patient-service=gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }}
+        kubectl set image deployment/order-service order-service=gcr.io/devops-hackathon-490406/order-service:${{ github.sha }}
+        kubectl set image deployment/application-service application-service=gcr.io/devops-hackathon-490406/application-service:${{ github.sha }}
