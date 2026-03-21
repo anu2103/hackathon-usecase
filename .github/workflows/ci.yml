@@ -38,3 +38,10 @@ jobs:
     - name: Push Order Service Image
       run: |
         docker push gcr.io/devops-hackathon-490406/order-service
+
+    - name: Build Application Service Image
+      run: |
+        docker build -t gcr.io/devops-hackathon-490406/application-service ./application-service
+    - name: Push Application Service Image
+      run: |
+        docker push gcr.io/devops-hackathon-490406/application-service
