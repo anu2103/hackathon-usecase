@@ -21,7 +21,11 @@ const express = require('express');
         patients: patients 
       });
     });
-    
+   
+   app.get('/test-ci', (req, res) => {
+	   res.json({ message: "CI/CD pipeline working ✅" });
+    });
+
     app.get('/patients/:id', (req, res) => {
       const patient = patients.find(p => p.id === req.params.id);
       if (patient) {
