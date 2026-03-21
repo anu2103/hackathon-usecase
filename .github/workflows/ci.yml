@@ -7,7 +7,7 @@ on:
 
 env:
   PROJECT_ID: devops-hackathon-490406
-  GKE_CLUSTER: hackathon-cluster 
+  GKE_CLUSTER: hackathon-cluster
   GKE_ZONE: us-central1-a
 
 jobs:
@@ -15,44 +15,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      # 🔐 Authenticate to GCP
+      - name: Login to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    # 🔐 Authenticate to GCP
-    - name: Login to GCP
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+      # 🐳 Configure Docker
+      - name: Configure Docker
+        run: gcloud auth configure-docker
 
-    # 🐳 Configure Docker
-    - name: Configure Docker
-      run: gcloud auth configure-docker
+      # 🏗️ Build Images with UNIQUE TAG
+      - name: Build Images
+        run: |
+          docker build -t gcr.io/$PROJECT_ID/patient-service:${{ github.sha }} ./patient-service
+          docker build -t gcr.io/$PROJECT_ID/order-service:${{ github.sha }} ./order-service
+          docker build -t gcr.io/$PROJECT_ID/application-service:${{ github.sha }} ./application-service
 
-    # 🏗️ Build Images with UNIQUE TAG
-    - name: Build Images
-      run: |
-        docker build -t gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }} ./patient-service
-        docker build -t gcr.io/devops-hackathon-490406/order-service:${{ github.sha }} ./order-service
-        docker build -t gcr.io/devops-hackathon-490406/application-service:${{ github.sha }} ./application-service
+      # 📤 Push Images
+      - name: Push Images
+        run: |
+          docker push gcr.io/$PROJECT_ID/patient-service:${{ github.sha }}
+          docker push gcr.io/$PROJECT_ID/order-service:${{ github.sha }}
+          docker push gcr.io/$PROJECT_ID/application-service:${{ github.sha }}
 
-    # 📤 Push Images
-    - name: Push Images
-      run: |
-        docker push gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }}
-        docker push gcr.io/devops-hackathon-490406/order-service:${{ github.sha }}
-        docker push gcr.io/devops-hackathon-490406/application-service:${{ github.sha }}
+      # ☸️ Connect to GKE (FIXED ✅)
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
 
-    # ☸️ Connect to GKE
-  - name: Get GKE Credentials
-  uses: google-github-actions/get-gke-credentials@v1
-  with:
-    cluster_name: ${{ env.GKE_CLUSTER }}
-    location: ${{ env.GKE_ZONE }}
-
-    # 🚀 Deploy to Kubernetes (MOST IMPORTANT)
-    - name: Deploy to GKE
-      run: |
-        kubectl set image deployment/patient-service patient-service=gcr.io/devops-hackathon-490406/patient-service:${{ github.sha }}
-        kubectl set image deployment/order-service order-service=gcr.io/devops-hackathon-490406/order-service:${{ github.sha }}
-        kubectl set image deployment/application-service application-service=gcr.io/devops-hackathon-490406/application-service:${{ github.sha }}
+      # 🚀 Deploy to Kubernetes
+      - name: Deploy to GKE
+        run: |
+          kubectl set image deployment/patient-service patient-service=gcr.io/$PROJECT_ID/patient-service:${{ github.sha }}
+          kubectl set image deployment/order-service order-service=gcr.io/$PROJECT_ID/order-service:${{ github.sha }}
+          kubectl set image deployment/application-service application-service=gcr.io/$PROJECT_ID/application-service:${{ github.sha }}
